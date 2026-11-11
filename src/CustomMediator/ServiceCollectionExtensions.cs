@@ -1,41 +1,8 @@
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using System.Reflection;
 
 namespace CustomMediator;
-
-public sealed class MediatorOptions
-{
-    internal List<Assembly> Assemblies { get; } = [];
-    internal List<Type> Behaviors { get; } = [];
-    internal Type NotificationPublisherType { get; private set; } = typeof(ForeachAwaitPublisher);
-
-    /// <summary>Scan this assembly for handlers and validators.</summary>
-    public MediatorOptions RegisterServicesFromAssembly(Assembly assembly)
-    {
-        Assemblies.Add(assembly);
-        return this;
-    }
-
-    /// <summary>Add an open-generic behavior, e.g. <c>typeof(LoggingBehavior&lt;,&gt;)</c>. Order = registration order.</summary>
-    public MediatorOptions AddOpenBehavior(Type openBehaviorType)
-    {
-        if (!openBehaviorType.IsGenericTypeDefinition ||
-            !openBehaviorType.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>)))
-        {
-            throw new ArgumentException($"{openBehaviorType.Name} must be an open generic IPipelineBehavior<,>.", nameof(openBehaviorType));
-        }
-
-        Behaviors.Add(openBehaviorType);
-        return this;
-    }
-
-    public MediatorOptions UseNotificationPublisher<TPublisher>() where TPublisher : class, INotificationPublisher
-    {
-        NotificationPublisherType = typeof(TPublisher);
-        return this;
-    }
-}
 
 public static class ServiceCollectionExtensions
 {
@@ -47,29 +14,45 @@ public static class ServiceCollectionExtensions
         var options = new MediatorOptions();
         configure(options);
 
+        RegisterCoreServices(services, options);
+        RegisterBehaviors(services, options);
+        RegisterHandlers(services, options.Assemblies);
+
+        return services;
+    }
+
+    private static void RegisterCoreServices(IServiceCollection services, MediatorOptions options)
+    {
         services.TryAddSingleton(typeof(INotificationPublisher), options.NotificationPublisherType);
         services.TryAddTransient<IMediator, Mediator>();
         services.TryAddTransient<ISender>(sp => sp.GetRequiredService<IMediator>());
         services.TryAddTransient<IPublisher>(sp => sp.GetRequiredService<IMediator>());
+    }
 
+    private static void RegisterBehaviors(IServiceCollection services, MediatorOptions options)
+    {
         foreach (var behavior in options.Behaviors)
         {
             services.AddTransient(typeof(IPipelineBehavior<,>), behavior);
         }
+    }
 
-        foreach (var type in options.Assemblies.Distinct().SelectMany(a => a.GetTypes()))
+    /// <summary>Registers every closed handler and validator implementation found in the given assemblies.</summary>
+    private static void RegisterHandlers(IServiceCollection services, IEnumerable<Assembly> assemblies)
+    {
+        var concreteTypes = assemblies.Distinct()
+            .SelectMany(a => a.GetTypes())
+            .Where(t => t is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false });
+
+        foreach (var type in concreteTypes)
         {
-            if (type is not { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false }) continue;
-
-            foreach (var iface in type.GetInterfaces())
+            foreach (var serviceType in type.GetInterfaces().Where(IsScannedInterface))
             {
-                if (iface.IsGenericType && ScannedInterfaces.Contains(iface.GetGenericTypeDefinition()))
-                {
-                    services.AddTransient(iface, type);
-                }
+                services.AddTransient(serviceType, type);
             }
         }
-
-        return services;
     }
+
+    private static bool IsScannedInterface(Type type) =>
+        type.IsGenericType && ScannedInterfaces.Contains(type.GetGenericTypeDefinition());
 }
