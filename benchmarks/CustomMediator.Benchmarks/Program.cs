@@ -1,4 +1,5 @@
-﻿using BenchmarkDotNet.Attributes;
+﻿using System.Runtime.CompilerServices;
+using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using CustomMediator;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +10,8 @@ public record Ping(int Value) : IRequest<int>;
 
 public class PingHandler : IRequestHandler<Ping, int>
 {
+    // NoInlining stops the JIT from erasing the handler, otherwise the "direct call" baseline measures nothing.
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public Task<int> HandleAsync(Ping request, CancellationToken ct) => Task.FromResult(request.Value + 1);
 }
 

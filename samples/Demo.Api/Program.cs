@@ -1,6 +1,6 @@
-using System.Collections.Concurrent;
 using CustomMediator;
 using Demo.Api;
+using System.Collections.Concurrent;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -70,6 +70,23 @@ dotnet run -c Release --project benchmarks/CustomMediator.Benchmarks
 | Other DI containers | Microsoft DI only | many |
 | License | MIT (this repo) | commercial license for recent versions |
 
+## Benchmarks
+
+BenchmarkDotNet 0.14.0, .NET 8.0.18, Release build, Windows 11, x64 (AVX2). The handler is trivial on purpose, so these numbers show **mediator overhead only**, not real-world request cost.
+
+| Method                   | Mean       | Allocated |
+|------------------------- |-----------:|----------:|
+| Direct handler call      |    ~2 ns   |       0 B |
+| `SendAsync`, no behaviors |   ~67 ns   |      64 B |
+| `SendAsync`, 2 behaviors  |  ~131 ns   |     424 B |
+
+- A call costs on the order of **100 ns**. Any handler that does I/O (database, HTTP) takes milliseconds, so the overhead is negligible next to it.
+- Each pipeline behavior adds roughly 32 ns and about 180 B.
+- Timings vary by several ns between runs and machines; allocation figures are stable. Re-run with
+  `dotnet run -c Release --project benchmarks/CustomMediator.Benchmarks` to measure your own hardware.
+- When no behaviors are registered, the mediator calls the handler directly. That fast path cut allocations from 176 B to 64 B per call and time from about 95 ns to about 67–77 ns (two runs each).
+- The "direct call" baseline uses a non-inlined handler; with inlining the JIT erases the call and the comparison is meaningless.
+
 ## License
 
 [MIT](LICENSE) © 2026 Jatin Bansal

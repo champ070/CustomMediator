@@ -65,11 +65,19 @@ internal sealed class RequestHandlerWrapperImpl<TRequest, TResponse> : RequestHa
 
         var typedRequest = (TRequest)request;
 
+        // Microsoft DI returns an array here, so the cast avoids an extra copy.
+        var behaviors = sp.GetServices<IPipelineBehavior<TRequest, TResponse>>();
+        var list = behaviors as IReadOnlyList<IPipelineBehavior<TRequest, TResponse>> ?? [.. behaviors];
+
+        // Fast path: no behaviors registered, so call the handler directly (no closures, no delegates).
+        if (list.Count == 0) return handler.HandleAsync(typedRequest, ct);
+
         RequestHandlerDelegate<TResponse> next = () => handler.HandleAsync(typedRequest, ct);
 
         // Build the chain inside-out so the first registered behavior ends up outermost.
-        foreach (var behavior in sp.GetServices<IPipelineBehavior<TRequest, TResponse>>().Reverse())
+        for (var i = list.Count - 1; i >= 0; i--)
         {
+            var behavior = list[i];
             var inner = next;
             next = () => behavior.HandleAsync(typedRequest, inner, ct);
         }
