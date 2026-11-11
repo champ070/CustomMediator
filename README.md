@@ -1,6 +1,6 @@
 # CustomMediator
 
-A small, dependency-light implementation of the **mediator pattern** for .NET 8: requests with a single handler, notifications with many handlers, and a pipeline of behaviors for cross-cutting concerns.
+A small, dependency-light implementation of the **mediator pattern** for .NET 10: requests with a single handler, notifications with many handlers, and a pipeline of behaviors for cross-cutting concerns.
 
 It is a learning-oriented, lightweight library written to understand what mediator libraries such as MediatR do under the hood. It is **not** a drop-in replacement for MediatR and does not try to cover all of its features.
 
@@ -48,7 +48,7 @@ SendAsync(request)
 
 ```
 src/CustomMediator/              the library
-tests/CustomMediator.Tests/      xUnit tests (15)
+tests/CustomMediator.Tests/      xUnit v3 tests (25)
 samples/Demo.Api/                minimal API: command, query, notification, validation, logging
 benchmarks/CustomMediator.Benchmarks/   BenchmarkDotNet: direct call vs mediator vs mediator + behaviors
 ```
@@ -72,19 +72,20 @@ dotnet run -c Release --project benchmarks/CustomMediator.Benchmarks
 
 ## Benchmarks
 
-BenchmarkDotNet 0.14.0, .NET 8.0.18, Release build, Windows 11, x64 (AVX2). The handler is trivial on purpose, so these numbers show **mediator overhead only**, not real-world request cost.
+BenchmarkDotNet 0.15.8, .NET 10.0.11, Release build, Windows 11, Intel Core i5-13500H (12 cores / 16 threads), x64. The handler is trivial on purpose, so these numbers show **mediator overhead only**, not real-world request cost.
 
-| Method                   | Mean       | Allocated |
-|------------------------- |-----------:|----------:|
-| Direct handler call      |    ~2 ns   |       0 B |
-| `SendAsync`, no behaviors |   ~67 ns   |      64 B |
-| `SendAsync`, 2 behaviors  |  ~131 ns   |     424 B |
+| Method                    | Mean     | Allocated |
+|-------------------------- |---------:|----------:|
+| Direct handler call       |  ~2.0 ns |       0 B |
+| `SendAsync`, no behaviors |  ~42 ns  |      64 B |
+| `SendAsync`, 2 behaviors  |  ~78 ns  |     424 B |
 
-- A call costs on the order of **100 ns**. Any handler that does I/O (database, HTTP) takes milliseconds, so the overhead is negligible next to it.
-- Each pipeline behavior adds roughly 32 ns and about 180 B.
-- Timings vary by several ns between runs and machines; allocation figures are stable. Re-run with
+- A call costs well under **100 ns**. Any handler that does I/O (database, HTTP) takes milliseconds, so the overhead is negligible next to it.
+- Each pipeline behavior adds roughly 18 ns and about 180 B.
+- Timings vary between runs and machines; allocation figures are stable. Re-run with
   `dotnet run -c Release --project benchmarks/CustomMediator.Benchmarks` to measure your own hardware.
-- When no behaviors are registered, the mediator calls the handler directly. That fast path cut allocations from 176 B to 64 B per call and time from about 95 ns to about 67–77 ns (two runs each).
+- When no behaviors are registered, the mediator calls the handler directly. On .NET 8 that fast path cut allocations from 176 B to 64 B per call and time from about 95 ns to about 67-77 ns (two runs each).
+- Moving the same code from .NET 8 to .NET 10 (no code changes) reduced time further, from roughly 67-77 ns to about 42 ns (no behaviors) and from roughly 131-141 ns to about 78 ns (two behaviors). Allocations were identical, so the gain comes from the runtime. The .NET 8 and .NET 10 runs used different BenchmarkDotNet versions.
 - The "direct call" baseline uses a non-inlined handler; with inlining the JIT erases the call and the comparison is meaningless.
 
 ## License
