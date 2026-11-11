@@ -19,37 +19,37 @@ public record NoHandlers : INotification;                   // deliberately has 
 // ---- request handlers ----
 public class PingHandler : IRequestHandler<Ping, string>
 {
-    public Task<string> HandleAsync(Ping request, CancellationToken ct) => Task.FromResult($"Pong: {request.Message}");
+    public Task<string> HandleAsync(Ping request, CancellationToken cancellationToken) => Task.FromResult($"Pong: {request.Message}");
 }
 
 public class DoWorkHandler(List<string> log) : IRequestHandler<DoWork, Unit>
 {
-    public Task<Unit> HandleAsync(DoWork request, CancellationToken ct)
+    public Task<Unit> HandleAsync(DoWork request, CancellationToken cancellationToken)
     {
         log.Add("work");
-        return Unit.Task;
+        return Unit.CompletedTask;
     }
 }
 
 // Throws BEFORE returning a Task (not inside an async method).
 public class SyncThrowsHandler : IRequestHandler<SyncThrows, int>
 {
-    public Task<int> HandleAsync(SyncThrows request, CancellationToken ct) => throw new InvalidOperationException("boom");
+    public Task<int> HandleAsync(SyncThrows request, CancellationToken cancellationToken) => throw new InvalidOperationException("boom");
 }
 
 public class DualIntHandler : IRequestHandler<Dual, int>
 {
-    public Task<int> HandleAsync(Dual request, CancellationToken ct) => Task.FromResult(42);
+    public Task<int> HandleAsync(Dual request, CancellationToken cancellationToken) => Task.FromResult(42);
 }
 
 public class DualStringHandler : IRequestHandler<Dual, string>
 {
-    public Task<string> HandleAsync(Dual request, CancellationToken ct) => Task.FromResult("forty-two");
+    public Task<string> HandleAsync(Dual request, CancellationToken cancellationToken) => Task.FromResult("forty-two");
 }
 
 public class CountMeHandler : IRequestHandler<CountMe, int>
 {
-    public async Task<int> HandleAsync(CountMe request, CancellationToken ct)
+    public async Task<int> HandleAsync(CountMe request, CancellationToken cancellationToken)
     {
         await Task.Yield();
         return request.N * 2;
@@ -59,18 +59,18 @@ public class CountMeHandler : IRequestHandler<CountMe, int>
 // ---- notification handlers ----
 public class HappenedA(List<string> log) : INotificationHandler<Happened>
 {
-    public Task HandleAsync(Happened n, CancellationToken ct) { log.Add("A:" + n.Name); return Task.CompletedTask; }
+    public Task HandleAsync(Happened notification, CancellationToken cancellationToken) { log.Add("A:" + notification.Name); return Task.CompletedTask; }
 }
 
 public class HappenedB(List<string> log) : INotificationHandler<Happened>
 {
-    public Task HandleAsync(Happened n, CancellationToken ct) { log.Add("B:" + n.Name); return Task.CompletedTask; }
+    public Task HandleAsync(Happened notification, CancellationToken cancellationToken) { log.Add("B:" + notification.Name); return Task.CompletedTask; }
 }
 
 // Both record that they ran, then throw synchronously.
 public class FailingHandler1(List<string> log) : INotificationHandler<Explodes>
 {
-    public Task HandleAsync(Explodes n, CancellationToken ct)
+    public Task HandleAsync(Explodes notification, CancellationToken cancellationToken)
     {
         log.Add("one");
         throw new InvalidOperationException("one");
@@ -79,7 +79,7 @@ public class FailingHandler1(List<string> log) : INotificationHandler<Explodes>
 
 public class FailingHandler2(List<string> log) : INotificationHandler<Explodes>
 {
-    public Task HandleAsync(Explodes n, CancellationToken ct)
+    public Task HandleAsync(Explodes notification, CancellationToken cancellationToken)
     {
         log.Add("two");
         throw new InvalidOperationException("two");
@@ -88,25 +88,25 @@ public class FailingHandler2(List<string> log) : INotificationHandler<Explodes>
 
 public class CancelledHandler1 : INotificationHandler<CancelsEverything>
 {
-    public Task HandleAsync(CancelsEverything n, CancellationToken ct) => Task.FromCanceled(new CancellationToken(true));
+    public Task HandleAsync(CancelsEverything notification, CancellationToken cancellationToken) => Task.FromCanceled(new CancellationToken(true));
 }
 
 public class CancelledHandler2 : INotificationHandler<CancelsEverything>
 {
-    public Task HandleAsync(CancelsEverything n, CancellationToken ct) => Task.FromCanceled(new CancellationToken(true));
+    public Task HandleAsync(CancelsEverything notification, CancellationToken cancellationToken) => Task.FromCanceled(new CancellationToken(true));
 }
 
 // ---- validators and behaviors ----
 public class PingValidator : IValidator<Ping>
 {
-    public IEnumerable<string> Validate(Ping r) => string.IsNullOrWhiteSpace(r.Message) ? ["Message is required"] : [];
+    public IEnumerable<string> Validate(Ping request) => string.IsNullOrWhiteSpace(request.Message) ? ["Message is required"] : [];
 }
 
 /// <summary>Records "before:tag" and "after:tag" around the rest of the pipeline.</summary>
 public abstract class TaggingBehaviorBase<TRequest, TResponse>(List<string> log, string tag)
     : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
-    public async Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+    public async Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
         log.Add("before:" + tag);
         var result = await next();
@@ -123,6 +123,6 @@ public class InnerBehavior<TRequest, TResponse>(List<string> log) : TaggingBehav
 
 public class ShortCircuitBehavior : IPipelineBehavior<Ping, string>
 {
-    public Task<string> HandleAsync(Ping request, RequestHandlerDelegate<string> next, CancellationToken ct)
+    public Task<string> HandleAsync(Ping request, RequestHandlerDelegate<string> next, CancellationToken cancellationToken)
         => Task.FromResult("cached");
 }

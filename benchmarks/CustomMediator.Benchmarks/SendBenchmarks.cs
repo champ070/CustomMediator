@@ -10,12 +10,12 @@ public class PingHandler : IRequestHandler<Ping, int>
 {
     // NoInlining stops the JIT from erasing the handler, otherwise the "direct call" baseline measures nothing.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public Task<int> HandleAsync(Ping request, CancellationToken ct) => Task.FromResult(request.Value + 1);
+    public Task<int> HandleAsync(Ping request, CancellationToken cancellationToken) => Task.FromResult(request.Value + 1);
 }
 
 public class PassThroughBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
-    public Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct) => next();
+    public Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken) => next();
 }
 
 [MemoryDiagnoser]

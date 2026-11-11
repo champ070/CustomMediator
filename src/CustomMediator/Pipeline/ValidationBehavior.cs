@@ -19,7 +19,7 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
 {
     public Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
-        var errors = validators.SelectMany(v => v.Validate(request)).ToList();
+        var errors = validators.SelectMany(validator => validator.Validate(request)).ToList();
         if (errors.Count > 0) throw new RequestValidationException(errors);
         return next();
     }

@@ -9,14 +9,14 @@ public static class OrderEndpoints
     {
         var orders = app.MapGroup("/orders");
 
-        orders.MapPost("/", async (CreateOrder command, ISender sender, CancellationToken ct) =>
+        orders.MapPost("/", async (CreateOrder command, ISender sender, CancellationToken cancellationToken) =>
         {
-            var id = await sender.SendAsync(command, ct);
+            var id = await sender.SendAsync(command, cancellationToken);
             return Results.Created($"/orders/{id}", new { id });
         });
 
-        orders.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
-            await sender.SendAsync(new GetOrder(id), ct) is { } order ? Results.Ok(order) : Results.NotFound());
+        orders.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken cancellationToken) =>
+            await sender.SendAsync(new GetOrder(id), cancellationToken) is { } order ? Results.Ok(order) : Results.NotFound());
 
         return app;
     }

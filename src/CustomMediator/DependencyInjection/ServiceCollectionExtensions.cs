@@ -25,8 +25,8 @@ public static class ServiceCollectionExtensions
     {
         services.TryAddSingleton(typeof(INotificationPublisher), options.NotificationPublisherType);
         services.TryAddTransient<IMediator, Mediator>();
-        services.TryAddTransient<ISender>(sp => sp.GetRequiredService<IMediator>());
-        services.TryAddTransient<IPublisher>(sp => sp.GetRequiredService<IMediator>());
+        services.TryAddTransient<ISender>(serviceProvider => serviceProvider.GetRequiredService<IMediator>());
+        services.TryAddTransient<IPublisher>(serviceProvider => serviceProvider.GetRequiredService<IMediator>());
     }
 
     private static void RegisterBehaviors(IServiceCollection services, MediatorOptions options)
