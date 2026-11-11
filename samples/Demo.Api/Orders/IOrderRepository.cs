@@ -9,6 +9,4 @@ public interface IOrderRepository
     void Add(Order order);
 
     Order? Find(Guid id);
-
-    IReadOnlyCollection<Order> GetAll();
 }

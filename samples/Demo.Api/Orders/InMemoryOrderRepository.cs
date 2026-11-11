@@ -10,6 +10,4 @@ public sealed class InMemoryOrderRepository : IOrderRepository
     public void Add(Order order) => _orders[order.Id] = order;
 
     public Order? Find(Guid id) => _orders.GetValueOrDefault(id);
-
-    public IReadOnlyCollection<Order> GetAll() => _orders.Values.ToArray();
 }

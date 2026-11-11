@@ -3,7 +3,9 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Demo.Api.Orders;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using static CustomMediator.Tests.TestHost;
 
 namespace CustomMediator.Tests;
@@ -88,16 +90,53 @@ public class DemoApiTests(WebApplicationFactory<Program> factory) : IClassFixtur
         Assert.Equal([expectedError], await ReadErrorsAsync(response));
     }
 
+    /// <summary>Runs the API with a spy repository swapped in, so the test can see what was stored.</summary>
+    private HttpClient CreateClientWithSpy(out SpyOrderRepository spy)
+    {
+        var spyRepository = spy = new SpyOrderRepository();
+        return factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IOrderRepository>();
+            services.AddSingleton<IOrderRepository>(spyRepository);
+        })).CreateClient();
+    }
+
+    [Fact]
+    public async Task Valid_order_is_stored()
+    {
+        using var client = CreateClientWithSpy(out var spy);
+
+        var response = await client.PostAsJsonAsync("/orders", new CreateOrder("Acme", 42m), Ct);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var stored = Assert.Single(spy.Added);
+        Assert.Equal(new { Customer = "Acme", Total = 42m }, new { stored.Customer, stored.Total });
+    }
+
     [Fact]
     public async Task Invalid_order_is_not_stored()
     {
-        using var client = CreateClient();
-        var customer = $"rejected-{Guid.NewGuid():N}";
+        using var client = CreateClientWithSpy(out var spy);
 
-        var response = await client.PostAsJsonAsync("/orders", new CreateOrder(customer, -1m), Ct);
+        var response = await client.PostAsJsonAsync("/orders", new CreateOrder("", -1m), Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var repository = factory.Services.GetRequiredService<IOrderRepository>();
-        Assert.DoesNotContain(repository.GetAll(), o => o.Customer == customer);
+        Assert.Empty(spy.Added);
+    }
+
+    /// <summary>Records every order added, on top of the real in-memory repository.</summary>
+    private sealed class SpyOrderRepository : IOrderRepository
+    {
+        private readonly InMemoryOrderRepository _inner = new();
+
+        public List<Order> Added { get; } = [];
+
+        public void Add(Order order)
+        {
+            Added.Add(order);
+            _inner.Add(order);
+        }
+
+        public Order? Find(Guid id) => _inner.Find(id);
     }
 }
