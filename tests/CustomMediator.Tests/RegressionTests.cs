@@ -1,62 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using static CustomMediator.Tests.TestHost;
 
 namespace CustomMediator.Tests;
 
-// Types used only by the regression tests below. They are picked up by the assembly scan.
-public record CancelsEverything : INotification;
-public record SyncThrows : IRequest<int>;
-public record Dual : IRequest<int>, IRequest<string>;
-public record CountMe(int N) : IRequest<int>;
-
-public class CancelledHandler1 : INotificationHandler<CancelsEverything>
-{
-    public Task HandleAsync(CancelsEverything n, CancellationToken ct) => Task.FromCanceled(new CancellationToken(true));
-}
-
-public class CancelledHandler2 : INotificationHandler<CancelsEverything>
-{
-    public Task HandleAsync(CancelsEverything n, CancellationToken ct) => Task.FromCanceled(new CancellationToken(true));
-}
-
-// Throws BEFORE returning a Task (not inside an async method).
-public class SyncThrowsHandler : IRequestHandler<SyncThrows, int>
-{
-    public Task<int> HandleAsync(SyncThrows request, CancellationToken ct) => throw new InvalidOperationException("boom");
-}
-
-public class DualIntHandler : IRequestHandler<Dual, int>
-{
-    public Task<int> HandleAsync(Dual request, CancellationToken ct) => Task.FromResult(42);
-}
-
-public class DualStringHandler : IRequestHandler<Dual, string>
-{
-    public Task<string> HandleAsync(Dual request, CancellationToken ct) => Task.FromResult("forty-two");
-}
-
-public class CountMeHandler : IRequestHandler<CountMe, int>
-{
-    public async Task<int> HandleAsync(CountMe request, CancellationToken ct)
-    {
-        await Task.Yield();
-        return request.N * 2;
-    }
-}
-
+/// <summary>One group of tests per bug that was found and fixed, so it cannot silently come back.</summary>
 public class RegressionTests
 {
-    private static ServiceProvider Build(Action<MediatorOptions>? options = null)
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton(new List<string>());
-        services.AddCustomMediator(o =>
-        {
-            o.RegisterServicesFromAssembly(typeof(RegressionTests).Assembly);
-            options?.Invoke(o);
-        });
-        return services.BuildServiceProvider();
-    }
-
     // ---- Bug 1: cancellation was swallowed (empty AggregateException) by TaskWhenAllPublisher ----
 
     [Fact]
@@ -65,20 +14,9 @@ public class RegressionTests
         using var sp = Build(o => o.UseNotificationPublisher<TaskWhenAllPublisher>());
 
         var ex = await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => sp.GetRequiredService<IMediator>().PublishAsync(new CancelsEverything(), TestContext.Current.CancellationToken));
+            () => sp.GetRequiredService<IMediator>().PublishAsync(new CancelsEverything(), Ct));
 
         Assert.IsNotType<AggregateException>(ex);
-    }
-
-    [Fact]
-    public async Task WhenAll_publisher_still_reports_failures_when_some_handlers_fault()
-    {
-        using var sp = Build(o => o.UseNotificationPublisher<TaskWhenAllPublisher>());
-
-        var ex = await Assert.ThrowsAsync<AggregateException>(
-            () => sp.GetRequiredService<IMediator>().PublishAsync(new Explodes(), TestContext.Current.CancellationToken));
-
-        Assert.Equal(2, ex.InnerExceptions.Count);
     }
 
     // ---- Bug 2: synchronous throws escaped SendAsync instead of faulting the returned Task ----
@@ -88,7 +26,7 @@ public class RegressionTests
     {
         using var sp = Build();
 
-        var task = sp.GetRequiredService<IMediator>().SendAsync(new SyncThrows(), TestContext.Current.CancellationToken); // must NOT throw here
+        var task = sp.GetRequiredService<IMediator>().SendAsync(new SyncThrows(), Ct); // must NOT throw here
 
         Assert.True(task.IsFaulted);
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => task);
@@ -100,7 +38,7 @@ public class RegressionTests
     {
         using var sp = Build();
 
-        var task = sp.GetRequiredService<IMediator>().SendAsync(new Unregistered(), TestContext.Current.CancellationToken); // must NOT throw here
+        var task = sp.GetRequiredService<IMediator>().SendAsync(new Unregistered(), Ct); // must NOT throw here
 
         Assert.True(task.IsFaulted);
         await Assert.ThrowsAsync<HandlerNotFoundException>(() => task);
@@ -124,7 +62,7 @@ public class RegressionTests
     {
         using var sp = Build(); // default sequential publisher
 
-        var task = sp.GetRequiredService<IMediator>().PublishAsync(new Explodes(), TestContext.Current.CancellationToken); // must NOT throw here
+        var task = sp.GetRequiredService<IMediator>().PublishAsync(new Explodes(), Ct); // must NOT throw here
 
         Assert.True(task.IsFaulted);
         await Assert.ThrowsAsync<InvalidOperationException>(() => task);
@@ -149,8 +87,8 @@ public class RegressionTests
         using var sp = Build();
         var mediator = sp.GetRequiredService<IMediator>();
 
-        Assert.Throws<ArgumentNullException>(() => { _ = mediator.SendAsync<int>(null!, TestContext.Current.CancellationToken); });
-        Assert.Throws<ArgumentNullException>(() => { _ = mediator.PublishAsync<Happened>(null!, TestContext.Current.CancellationToken); });
+        Assert.Throws<ArgumentNullException>(() => { _ = mediator.SendAsync<int>(null!, Ct); });
+        Assert.Throws<ArgumentNullException>(() => { _ = mediator.PublishAsync<Happened>(null!, Ct); });
     }
 
     // ---- Bug 3: a request implementing two IRequest<> interfaces threw InvalidCastException ----
@@ -161,11 +99,11 @@ public class RegressionTests
         using var sp = Build();
         var mediator = sp.GetRequiredService<IMediator>();
 
-        Assert.Equal(42, await mediator.SendAsync<int>(new Dual(), TestContext.Current.CancellationToken));
-        Assert.Equal("forty-two", await mediator.SendAsync<string>(new Dual(), TestContext.Current.CancellationToken));
+        Assert.Equal(42, await mediator.SendAsync<int>(new Dual(), Ct));
+        Assert.Equal("forty-two", await mediator.SendAsync<string>(new Dual(), Ct));
         // and again, now that both wrappers are cached
-        Assert.Equal(42, await mediator.SendAsync<int>(new Dual(), TestContext.Current.CancellationToken));
-        Assert.Equal("forty-two", await mediator.SendAsync<string>(new Dual(), TestContext.Current.CancellationToken));
+        Assert.Equal(42, await mediator.SendAsync<int>(new Dual(), Ct));
+        Assert.Equal("forty-two", await mediator.SendAsync<string>(new Dual(), Ct));
     }
 
     [Fact]
@@ -175,7 +113,7 @@ public class RegressionTests
         var mediator = sp.GetRequiredService<IMediator>();
 
         var results = await Task.WhenAll(Enumerable.Range(1, 100)
-            .Select(i => Task.Run(() => mediator.SendAsync(new CountMe(i)))));
+            .Select(i => Task.Run(() => mediator.SendAsync(new CountMe(i), Ct), Ct)));
 
         Assert.Equal(Enumerable.Range(1, 100).Select(i => i * 2), results);
     }

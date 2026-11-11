@@ -48,7 +48,7 @@ SendAsync(request)
 
 ```
 src/CustomMediator/              the library
-tests/CustomMediator.Tests/      xUnit v3 tests (34): unit tests plus end-to-end tests of Demo.Api
+tests/CustomMediator.Tests/      xUnit v3 tests (33): unit tests plus end-to-end tests of Demo.Api
 samples/Demo.Api/                minimal API: command, query, notification, validation, logging
   Orders/                          one file per use case (request + validator + handler)
   Infrastructure/                  exception handler that maps validation errors to HTTP 400
@@ -118,15 +118,15 @@ BenchmarkDotNet 0.15.8, .NET 10.0.11, Release build, Windows 11, Intel Core i5-1
 | Method                    | Mean     | Allocated |
 |-------------------------- |---------:|----------:|
 | Direct handler call       |  ~2.0 ns |       0 B |
-| `SendAsync`, no behaviors |  ~42 ns  |      64 B |
-| `SendAsync`, 2 behaviors  |  ~78 ns  |     424 B |
+| `SendAsync`, no behaviors |  ~42-45 ns |      64 B |
+| `SendAsync`, 2 behaviors  |  ~78-85 ns |     424 B |
 
 - A call costs well under **100 ns**. Any handler that does I/O (database, HTTP) takes milliseconds, so the overhead is negligible next to it.
 - Each pipeline behavior adds roughly 18 ns and about 180 B.
 - Timings vary between runs and machines; allocation figures are stable. Re-run with
   `dotnet run -c Release --project benchmarks/CustomMediator.Benchmarks` to measure your own hardware.
 - When no behaviors are registered, the mediator calls the handler directly. On .NET 8 that fast path cut allocations from 176 B to 64 B per call and time from about 95 ns to about 67-77 ns (two runs each).
-- Moving the same code from .NET 8 to .NET 10 (no code changes) reduced time further, from roughly 67-77 ns to about 42 ns (no behaviors) and from roughly 131-141 ns to about 78 ns (two behaviors). Allocations were identical, so the gain comes from the runtime. The .NET 8 and .NET 10 runs used different BenchmarkDotNet versions.
+- Moving the same code from .NET 8 to .NET 10 (no code changes) reduced time further, from roughly 67-77 ns to about 42-45 ns (no behaviors) and from roughly 131-141 ns to about 78-85 ns (two behaviors). Allocations were identical, so the gain comes from the runtime. The .NET 8 and .NET 10 runs used different BenchmarkDotNet versions.
 - The "direct call" baseline uses a non-inlined handler; with inlining the JIT erases the call and the comparison is meaningless.
 
 ## License

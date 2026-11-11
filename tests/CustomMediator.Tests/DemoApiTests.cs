@@ -4,6 +4,7 @@ using System.Text.Json;
 using Demo.Api.Orders;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using static CustomMediator.Tests.TestHost;
 
 namespace CustomMediator.Tests;
 
@@ -13,11 +14,15 @@ namespace CustomMediator.Tests;
 /// </summary>
 public class DemoApiTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
-    private static CancellationToken Ct => TestContext.Current.CancellationToken;
-
-    // One client per test; a fresh in-memory store is shared per factory instance, which is fine
+    // One client per test; the in-memory repository is shared per factory instance, which is fine
     // because every test creates its own orders and looks them up by id.
     private HttpClient CreateClient() => factory.CreateClient();
+
+    private static async Task<List<string?>> ReadErrorsAsync(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        return body.GetProperty("errors").EnumerateArray().Select(e => e.GetString()).ToList();
+    }
 
     [Fact]
     public async Task Post_valid_order_returns_201_with_location_and_id()
@@ -65,9 +70,7 @@ public class DemoApiTests(WebApplicationFactory<Program> factory) : IClassFixtur
         var response = await client.PostAsJsonAsync("/orders", new CreateOrder("", 0m), Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
-        var errors = body.GetProperty("errors").EnumerateArray().Select(e => e.GetString()).ToList();
-        Assert.Equal(["Customer is required.", "Total must be greater than zero."], errors);
+        Assert.Equal(["Customer is required.", "Total must be greater than zero."], await ReadErrorsAsync(response));
     }
 
     [Theory]
@@ -82,9 +85,7 @@ public class DemoApiTests(WebApplicationFactory<Program> factory) : IClassFixtur
         var response = await client.PostAsJsonAsync("/orders", new CreateOrder(customer, total), Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
-        var errors = body.GetProperty("errors").EnumerateArray().Select(e => e.GetString()).ToList();
-        Assert.Equal([expectedError], errors);
+        Assert.Equal([expectedError], await ReadErrorsAsync(response));
     }
 
     [Fact]
