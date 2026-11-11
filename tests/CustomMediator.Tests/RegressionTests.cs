@@ -65,7 +65,7 @@ public class RegressionTests
         using var sp = Build(o => o.UseNotificationPublisher<TaskWhenAllPublisher>());
 
         var ex = await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => sp.GetRequiredService<IMediator>().PublishAsync(new CancelsEverything()));
+            () => sp.GetRequiredService<IMediator>().PublishAsync(new CancelsEverything(), TestContext.Current.CancellationToken));
 
         Assert.IsNotType<AggregateException>(ex);
     }
@@ -76,7 +76,7 @@ public class RegressionTests
         using var sp = Build(o => o.UseNotificationPublisher<TaskWhenAllPublisher>());
 
         var ex = await Assert.ThrowsAsync<AggregateException>(
-            () => sp.GetRequiredService<IMediator>().PublishAsync(new Explodes()));
+            () => sp.GetRequiredService<IMediator>().PublishAsync(new Explodes(), TestContext.Current.CancellationToken));
 
         Assert.Equal(2, ex.InnerExceptions.Count);
     }
@@ -88,7 +88,7 @@ public class RegressionTests
     {
         using var sp = Build();
 
-        var task = sp.GetRequiredService<IMediator>().SendAsync(new SyncThrows()); // must NOT throw here
+        var task = sp.GetRequiredService<IMediator>().SendAsync(new SyncThrows(), TestContext.Current.CancellationToken); // must NOT throw here
 
         Assert.True(task.IsFaulted);
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => task);
@@ -100,7 +100,7 @@ public class RegressionTests
     {
         using var sp = Build();
 
-        var task = sp.GetRequiredService<IMediator>().SendAsync(new Unregistered()); // must NOT throw here
+        var task = sp.GetRequiredService<IMediator>().SendAsync(new Unregistered(), TestContext.Current.CancellationToken); // must NOT throw here
 
         Assert.True(task.IsFaulted);
         await Assert.ThrowsAsync<HandlerNotFoundException>(() => task);
@@ -124,7 +124,7 @@ public class RegressionTests
     {
         using var sp = Build(); // default sequential publisher
 
-        var task = sp.GetRequiredService<IMediator>().PublishAsync(new Explodes()); // must NOT throw here
+        var task = sp.GetRequiredService<IMediator>().PublishAsync(new Explodes(), TestContext.Current.CancellationToken); // must NOT throw here
 
         Assert.True(task.IsFaulted);
         await Assert.ThrowsAsync<InvalidOperationException>(() => task);
@@ -149,8 +149,8 @@ public class RegressionTests
         using var sp = Build();
         var mediator = sp.GetRequiredService<IMediator>();
 
-        Assert.Throws<ArgumentNullException>(() => { _ = mediator.SendAsync<int>(null!); });
-        Assert.Throws<ArgumentNullException>(() => { _ = mediator.PublishAsync<Happened>(null!); });
+        Assert.Throws<ArgumentNullException>(() => { _ = mediator.SendAsync<int>(null!, TestContext.Current.CancellationToken); });
+        Assert.Throws<ArgumentNullException>(() => { _ = mediator.PublishAsync<Happened>(null!, TestContext.Current.CancellationToken); });
     }
 
     // ---- Bug 3: a request implementing two IRequest<> interfaces threw InvalidCastException ----
@@ -161,11 +161,11 @@ public class RegressionTests
         using var sp = Build();
         var mediator = sp.GetRequiredService<IMediator>();
 
-        Assert.Equal(42, await mediator.SendAsync<int>(new Dual()));
-        Assert.Equal("forty-two", await mediator.SendAsync<string>(new Dual()));
+        Assert.Equal(42, await mediator.SendAsync<int>(new Dual(), TestContext.Current.CancellationToken));
+        Assert.Equal("forty-two", await mediator.SendAsync<string>(new Dual(), TestContext.Current.CancellationToken));
         // and again, now that both wrappers are cached
-        Assert.Equal(42, await mediator.SendAsync<int>(new Dual()));
-        Assert.Equal("forty-two", await mediator.SendAsync<string>(new Dual()));
+        Assert.Equal(42, await mediator.SendAsync<int>(new Dual(), TestContext.Current.CancellationToken));
+        Assert.Equal("forty-two", await mediator.SendAsync<string>(new Dual(), TestContext.Current.CancellationToken));
     }
 
     [Fact]

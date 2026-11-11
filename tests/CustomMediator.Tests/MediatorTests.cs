@@ -91,7 +91,7 @@ public class MediatorTests
     public async Task Send_returns_handler_result()
     {
         using var sp = Build();
-        var result = await sp.GetRequiredService<IMediator>().SendAsync(new Ping("hi"));
+        var result = await sp.GetRequiredService<IMediator>().SendAsync(new Ping("hi"), TestContext.Current.CancellationToken);
         Assert.Equal("Pong: hi", result);
     }
 
@@ -99,7 +99,7 @@ public class MediatorTests
     public async Task Send_without_handler_throws_HandlerNotFoundException()
     {
         using var sp = Build();
-        var ex = await Assert.ThrowsAsync<HandlerNotFoundException>(() => sp.GetRequiredService<IMediator>().SendAsync(new Unregistered()));
+        var ex = await Assert.ThrowsAsync<HandlerNotFoundException>(() => sp.GetRequiredService<IMediator>().SendAsync(new Unregistered(), TestContext.Current.CancellationToken));
         Assert.Equal(typeof(Unregistered), ex.RequestType);
     }
 
@@ -107,7 +107,7 @@ public class MediatorTests
     public async Task Command_with_Unit_response_runs_handler()
     {
         using var sp = Build();
-        var result = await sp.GetRequiredService<IMediator>().SendAsync(new DoWork());
+        var result = await sp.GetRequiredService<IMediator>().SendAsync(new DoWork(), TestContext.Current.CancellationToken);
         Assert.Equal(Unit.Value, result);
         Assert.Contains("work", sp.GetRequiredService<List<string>>());
     }
@@ -116,7 +116,7 @@ public class MediatorTests
     public async Task Send_with_null_request_throws()
     {
         using var sp = Build();
-        await Assert.ThrowsAsync<ArgumentNullException>(() => sp.GetRequiredService<IMediator>().SendAsync<string>(null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => sp.GetRequiredService<IMediator>().SendAsync<string>(null!, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class MediatorTests
     public async Task Behaviors_run_in_registration_order_outermost_first()
     {
         using var sp = Build(options: o => o.AddOpenBehavior(typeof(OuterBehavior<,>)).AddOpenBehavior(typeof(InnerBehavior<,>)));
-        await sp.GetRequiredService<IMediator>().SendAsync(new Ping("x"));
+        await sp.GetRequiredService<IMediator>().SendAsync(new Ping("x"), TestContext.Current.CancellationToken);
         Assert.Equal(["before:outer", "before:inner", "after:inner", "after:outer"], sp.GetRequiredService<List<string>>());
     }
 
@@ -140,7 +140,7 @@ public class MediatorTests
     public async Task Behavior_can_short_circuit_the_handler()
     {
         using var sp = Build(extra: s => s.AddTransient<IPipelineBehavior<Ping, string>, ShortCircuitBehavior>());
-        Assert.Equal("cached", await sp.GetRequiredService<IMediator>().SendAsync(new Ping("x")));
+        Assert.Equal("cached", await sp.GetRequiredService<IMediator>().SendAsync(new Ping("x"), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -149,9 +149,9 @@ public class MediatorTests
         using var sp = Build(options: o => o.AddOpenBehavior(typeof(ValidationBehavior<,>)));
         var mediator = sp.GetRequiredService<IMediator>();
 
-        var ex = await Assert.ThrowsAsync<RequestValidationException>(() => mediator.SendAsync(new Ping(" ")));
+        var ex = await Assert.ThrowsAsync<RequestValidationException>(() => mediator.SendAsync(new Ping(" "), TestContext.Current.CancellationToken));
         Assert.Equal(["Message is required"], ex.Errors);
-        Assert.Equal("Pong: ok", await mediator.SendAsync(new Ping("ok")));
+        Assert.Equal("Pong: ok", await mediator.SendAsync(new Ping("ok"), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -162,15 +162,15 @@ public class MediatorTests
             options: o => o.AddOpenBehavior(typeof(LoggingBehavior<,>)));
         var mediator = sp.GetRequiredService<IMediator>();
 
-        Assert.Equal("Pong: a", await mediator.SendAsync(new Ping("a")));
-        await Assert.ThrowsAsync<HandlerNotFoundException>(() => mediator.SendAsync(new Unregistered()));
+        Assert.Equal("Pong: a", await mediator.SendAsync(new Ping("a"), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<HandlerNotFoundException>(() => mediator.SendAsync(new Unregistered(), TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Publish_runs_every_handler_sequentially_by_default()
     {
         using var sp = Build();
-        await sp.GetRequiredService<IMediator>().PublishAsync(new Happened("e"));
+        await sp.GetRequiredService<IMediator>().PublishAsync(new Happened("e"), TestContext.Current.CancellationToken);
         Assert.Equal(["A:e", "B:e"], sp.GetRequiredService<List<string>>());
     }
 
@@ -178,16 +178,18 @@ public class MediatorTests
     public async Task Publish_with_no_handlers_does_nothing()
     {
         using var sp = Build();
-        await sp.GetRequiredService<IMediator>().PublishAsync(new NoHandlers());
+        await sp.GetRequiredService<IMediator>().PublishAsync(new NoHandlers(), TestContext.Current.CancellationToken);
     }
+
+    private static readonly string[] collection = ["one", "two"];
 
     [Fact]
     public async Task Sequential_publisher_stops_at_first_failure()
     {
         using var sp = Build();
         // Assembly scan order is not guaranteed, so either failing handler may run first; the second must never run.
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => sp.GetRequiredService<IMediator>().PublishAsync(new Explodes()));
-        Assert.Contains(ex.Message, new[] { "one", "two" });
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => sp.GetRequiredService<IMediator>().PublishAsync(new Explodes(), TestContext.Current.CancellationToken));
+        Assert.Contains(ex.Message, collection);
     }
 
     [Fact]
@@ -195,7 +197,7 @@ public class MediatorTests
     {
         using var sp = Build(options: o => o.UseNotificationPublisher<TaskWhenAllPublisher>());
 
-        var ex = await Assert.ThrowsAsync<AggregateException>(() => sp.GetRequiredService<IMediator>().PublishAsync(new Explodes()));
+        var ex = await Assert.ThrowsAsync<AggregateException>(() => sp.GetRequiredService<IMediator>().PublishAsync(new Explodes(), TestContext.Current.CancellationToken));
         Assert.Equal(2, ex.InnerExceptions.Count);
     }
 
