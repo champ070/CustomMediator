@@ -50,6 +50,8 @@ SendAsync(request)
 src/CustomMediator/              the library
 tests/CustomMediator.Tests/      xUnit v3 tests (25)
 samples/Demo.Api/                minimal API: command, query, notification, validation, logging
+  Orders/                          one file per use case (request + validator + handler)
+  Infrastructure/                  exception handler that maps validation errors to HTTP 400
 benchmarks/CustomMediator.Benchmarks/   BenchmarkDotNet: direct call vs mediator vs mediator + behaviors
 ```
 
