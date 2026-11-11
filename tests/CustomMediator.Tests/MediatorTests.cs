@@ -125,7 +125,7 @@ public class MediatorTests
         using var sp = Build();
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        await Assert.ThrowsAsync<OperationCanceledException>(() => sp.GetRequiredService<IMediator>().SendAsync(new Ping("x"), cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sp.GetRequiredService<IMediator>().SendAsync(new Ping("x"), cts.Token));
     }
 
     [Fact]

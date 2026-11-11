@@ -34,9 +34,11 @@ public sealed class TaskWhenAllPublisher : INotificationPublisher
         {
             await all.ConfigureAwait(false);
         }
-        catch
+        catch when (!all.IsCanceled)
         {
-            throw all.Exception ?? new AggregateException();
+            // Faulted: surface every failure. (If every handler was merely cancelled, all.Exception is null,
+            // so that case is deliberately not caught here and the cancellation propagates as-is.)
+            throw all.Exception!;
         }
     }
 
