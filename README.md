@@ -48,7 +48,7 @@ SendAsync(request)
 
 ```
 src/CustomMediator/              the library
-tests/CustomMediator.Tests/      xUnit v3 tests (25)
+tests/CustomMediator.Tests/      xUnit v3 tests (34): unit tests plus end-to-end tests of Demo.Api
 samples/Demo.Api/                minimal API: command, query, notification, validation, logging
   Orders/                          one file per use case (request + validator + handler)
   Infrastructure/                  exception handler that maps validation errors to HTTP 400
@@ -60,6 +60,45 @@ dotnet test
 dotnet run --project samples/Demo.Api
 dotnet run -c Release --project benchmarks/CustomMediator.Benchmarks
 ```
+
+## Try the demo
+
+Start the sample API:
+
+```bash
+dotnet run --project samples/Demo.Api --urls http://localhost:5199
+```
+
+Create an order (command, then an `OrderCreated` notification handled by two handlers):
+
+```bash
+curl -i -X POST http://localhost:5199/orders -H "Content-Type: application/json" -d '{"customer":"Acme","total":42}'
+```
+
+```
+HTTP/1.1 201 Created
+Location: /orders/3f2b...
+{"id":"3f2b..."}
+```
+
+Read it back (query):
+
+```bash
+curl http://localhost:5199/orders/<id-from-above>
+```
+
+Send an invalid order to see the validation behavior short-circuit the pipeline:
+
+```bash
+curl -i -X POST http://localhost:5199/orders -H "Content-Type: application/json" -d '{"customer":"","total":0}'
+```
+
+```
+HTTP/1.1 400 Bad Request
+{"errors":["Customer is required.","Total must be greater than zero."]}
+```
+
+The server console shows each request being logged and timed by `LoggingBehavior`. The same scenarios run as automated end-to-end tests in `tests/CustomMediator.Tests/DemoApiTests.cs`.
 
 ## Differences from MediatR (deliberately out of scope)
 

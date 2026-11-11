@@ -15,6 +15,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1">
@@ -30,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CustomMediator\CustomMediator.csproj" />
+    <ProjectReference Include="..\..\samples\Demo.Api\Demo.Api.csproj" />
   </ItemGroup>
 
 </Project>

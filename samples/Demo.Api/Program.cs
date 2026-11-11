@@ -19,3 +19,6 @@ app.UseExceptionHandler();
 app.MapOrderEndpoints();
 
 app.Run();
+
+// Makes the top-level Program class visible to WebApplicationFactory<Program> in the integration tests.
+public partial class Program;
