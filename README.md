@@ -27,7 +27,7 @@ public record CreateOrder(string Customer, decimal Total) : IRequest<Guid>;
 
 public class CreateOrderHandler : IRequestHandler<CreateOrder, Guid>
 {
-    public Task<Guid> HandleAsync(CreateOrder request, CancellationToken ct) => ...;
+    public Task<Guid> HandleAsync(CreateOrder request, CancellationToken cancellationToken) => ...;
 }
 
 var id = await sender.SendAsync(new CreateOrder("Acme", 42));
@@ -37,20 +37,26 @@ var id = await sender.SendAsync(new CreateOrder("Acme", 42));
 
 ```
 SendAsync(request)
-  -> cached RequestHandlerWrapper<TRequest,TResponse>   (reflection runs once per request type)
+  -> cached TypedRequestHandlerWrapper<TRequest,TResponse>   (reflection runs once per request/response pair)
        -> Behavior 1 -> Behavior 2 -> ... -> Handler
 ```
 
-- `Mediator` keeps a static `ConcurrentDictionary<Type, wrapper>`. Creating the wrapper uses `MakeGenericType` once per request type; after that every call is a normal typed call, with no per-call reflection `Invoke`.
-- The wrapper resolves the handler and behaviors from DI and folds the behaviors into a chain of `RequestHandlerDelegate<TResponse>` closures, inside-out, so registration order equals execution order.
+- `Mediator` keeps a static `ConcurrentDictionary` keyed by (request type, response type). Creating a `TypedRequestHandlerWrapper` uses `MakeGenericType` once per pair; after that every call is a normal typed call, with no per-call reflection `Invoke`. The response type is part of the key because one request type may implement `IRequest<>` more than once.
+- The wrapper resolves the handler and behaviors from DI. With no behaviors registered it calls the handler directly; otherwise it folds the behaviors into a chain of `RequestHandlerDelegate<TResponse>` closures, inside-out, so registration order equals execution order.
 
 ## Repository layout
 
 ```
-src/CustomMediator/              the library
+src/CustomMediator/              the library (single namespace: CustomMediator)
+  Abstractions/                    contracts: requests, notifications, pipeline behaviors, ISender/IPublisher/IMediator
+  Pipeline/                        built-in behaviors and the internal request wrappers that run the pipeline
+  Notifications/                   publisher strategies (sequential, concurrent)
+  DependencyInjection/             AddCustomMediator and MediatorOptions
+  Exceptions/                      HandlerNotFoundException
+  Mediator.cs                      the IMediator implementation
 tests/CustomMediator.Tests/      xUnit v3 tests (33): unit tests plus end-to-end tests of Demo.Api
 samples/Demo.Api/                minimal API: command, query, notification, validation, logging
-  Orders/                          one file per use case (request + validator + handler)
+  Orders/                          request/validator/handler per use case; event and its handlers; repository
   Infrastructure/                  exception handler that maps validation errors to HTTP 400
 benchmarks/CustomMediator.Benchmarks/   BenchmarkDotNet: direct call vs mediator vs mediator + behaviors
 ```
