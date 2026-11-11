@@ -4,7 +4,7 @@ using Demo.Api.Orders;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSingleton<OrderStore>();
+builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
 builder.Services.AddCustomMediator(o => o
     .RegisterServicesFromAssembly(typeof(Program).Assembly)
     .AddOpenBehavior(typeof(LoggingBehavior<,>))      // outermost: times everything below it

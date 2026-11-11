@@ -15,12 +15,12 @@ public class CreateOrderValidator : IValidator<CreateOrder>
     }
 }
 
-public class CreateOrderHandler(OrderStore store, IPublisher publisher) : IRequestHandler<CreateOrder, Guid>
+public class CreateOrderHandler(IOrderRepository orders, IPublisher publisher) : IRequestHandler<CreateOrder, Guid>
 {
     public async Task<Guid> HandleAsync(CreateOrder request, CancellationToken cancellationToken)
     {
         var order = new Order(Guid.NewGuid(), request.Customer, request.Total);
-        store.Orders[order.Id] = order;
+        orders.Add(order);
         await publisher.PublishAsync(new OrderCreated(order.Id, order.Customer), cancellationToken);
         return order.Id;
     }

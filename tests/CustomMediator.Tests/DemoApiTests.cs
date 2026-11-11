@@ -96,7 +96,7 @@ public class DemoApiTests(WebApplicationFactory<Program> factory) : IClassFixtur
         var response = await client.PostAsJsonAsync("/orders", new CreateOrder(customer, -1m), Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var store = factory.Services.GetRequiredService<OrderStore>();
-        Assert.DoesNotContain(store.Orders.Values, o => o.Customer == customer);
+        var repository = factory.Services.GetRequiredService<IOrderRepository>();
+        Assert.DoesNotContain(repository.GetAll(), o => o.Customer == customer);
     }
 }
