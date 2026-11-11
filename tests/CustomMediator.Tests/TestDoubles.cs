@@ -10,6 +10,7 @@ public record DoWork : IRequest<Unit>;
 public record SyncThrows : IRequest<int>;
 public record Dual : IRequest<int>, IRequest<string>;       // implements IRequest<> twice
 public record CountMe(int N) : IRequest<int>;
+public record Signup(string Name, string Email) : IRequest<string>;   // has two validators
 
 public record Happened(string Name) : INotification;
 public record Explodes : INotification;                     // every handler throws
@@ -53,6 +54,15 @@ public class CountMeHandler : IRequestHandler<CountMe, int>
     {
         await Task.Yield();
         return request.N * 2;
+    }
+}
+
+public class SignupHandler(List<string> log) : IRequestHandler<Signup, string>
+{
+    public Task<string> HandleAsync(Signup request, CancellationToken cancellationToken)
+    {
+        log.Add("signup-handled");
+        return Task.FromResult($"welcome {request.Name}");
     }
 }
 
@@ -100,6 +110,16 @@ public class CancelledHandler2 : INotificationHandler<CancelsEverything>
 public class PingValidator : IValidator<Ping>
 {
     public IEnumerable<string> Validate(Ping request) => string.IsNullOrWhiteSpace(request.Message) ? ["Message is required"] : [];
+}
+
+public class SignupNameValidator : IValidator<Signup>
+{
+    public IEnumerable<string> Validate(Signup request) => string.IsNullOrWhiteSpace(request.Name) ? ["Name is required."] : [];
+}
+
+public class SignupEmailValidator : IValidator<Signup>
+{
+    public IEnumerable<string> Validate(Signup request) => request.Email.Contains('@') ? [] : ["Email must contain '@'."];
 }
 
 /// <summary>Records "before:tag" and "after:tag" around the rest of the pipeline.</summary>

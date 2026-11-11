@@ -19,8 +19,18 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
 {
     public Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
-        var errors = validators.SelectMany(validator => validator.Validate(request)).ToList();
-        if (errors.Count > 0) throw new RequestValidationException(errors);
+        // The list is only created when a validator actually reports an error, so a valid request
+        // (or a request with no validators at all) costs no allocation here.
+        List<string>? errors = null;
+        foreach (var validator in validators)
+        {
+            foreach (var error in validator.Validate(request))
+            {
+                (errors ??= []).Add(error);
+            }
+        }
+
+        if (errors is not null) throw new RequestValidationException(errors);
         return next();
     }
 }

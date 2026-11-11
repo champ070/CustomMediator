@@ -11,6 +11,9 @@ public sealed class TaskWhenAllPublisher : INotificationPublisher
         TNotification notification,
         CancellationToken cancellationToken) where TNotification : INotification
     {
+        ArgumentNullException.ThrowIfNull(handlers);
+        ArgumentNullException.ThrowIfNull(notification);
+
         var tasks = handlers.Select(handler => Invoke(handler, notification, cancellationToken)).ToArray();
         if (tasks.Length == 0) return;
 

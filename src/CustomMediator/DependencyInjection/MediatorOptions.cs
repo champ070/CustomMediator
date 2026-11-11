@@ -12,6 +12,8 @@ public sealed class MediatorOptions
     /// <summary>Scan this assembly for handlers and validators.</summary>
     public MediatorOptions RegisterServicesFromAssembly(Assembly assembly)
     {
+        ArgumentNullException.ThrowIfNull(assembly);
+
         Assemblies.Add(assembly);
         return this;
     }
@@ -19,6 +21,8 @@ public sealed class MediatorOptions
     /// <summary>Add an open-generic behavior, e.g. <c>typeof(LoggingBehavior&lt;,&gt;)</c>. Order = registration order.</summary>
     public MediatorOptions AddOpenBehavior(Type openBehaviorType)
     {
+        ArgumentNullException.ThrowIfNull(openBehaviorType);
+
         if (!openBehaviorType.IsGenericTypeDefinition ||
             !openBehaviorType.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>)))
         {

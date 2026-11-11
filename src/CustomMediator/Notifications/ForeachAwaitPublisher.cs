@@ -8,6 +8,9 @@ public sealed class ForeachAwaitPublisher : INotificationPublisher
         TNotification notification,
         CancellationToken cancellationToken) where TNotification : INotification
     {
+        ArgumentNullException.ThrowIfNull(handlers);
+        ArgumentNullException.ThrowIfNull(notification);
+
         foreach (var handler in handlers)
         {
             await handler.HandleAsync(notification, cancellationToken).ConfigureAwait(false);
