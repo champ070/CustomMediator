@@ -36,16 +36,29 @@ public sealed class LoggingBehavior<TRequest, TResponse>(ILogger<LoggingBehavior
     {
         var name = typeof(TRequest).Name;
         var started = Stopwatch.GetTimestamp();
-        logger.LogInformation("Handling {Request}", name);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation("Handling {Request}", name);
+        }
+
         try
         {
             var response = await next().ConfigureAwait(false);
-            logger.LogInformation("Handled {Request} in {Elapsed} ms", name, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            // Guarded so the elapsed-time calculation only runs when the message will actually be written.
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("Handled {Request} in {Elapsed} ms", name, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            }
+
             return response;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "{Request} failed after {Elapsed} ms", name, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            if (logger.IsEnabled(LogLevel.Error))
+            {
+                logger.LogError(ex, "{Request} failed after {Elapsed} ms", name, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            }
+
             throw;
         }
     }

@@ -80,7 +80,11 @@ namespace Demo.Api
     {
         public Task HandleAsync(OrderCreated n, CancellationToken ct)
         {
-            logger.LogInformation("Pretending to email {Customer} about order {OrderId}", n.Customer, n.OrderId);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("Pretending to email {Customer} about order {OrderId}", n.Customer, n.OrderId);
+            }
+
             return Task.CompletedTask;
         }
     }
@@ -89,7 +93,11 @@ namespace Demo.Api
     {
         public Task HandleAsync(OrderCreated n, CancellationToken ct)
         {
-            logger.LogInformation("Analytics: order {OrderId} created", n.OrderId);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("Analytics: order {OrderId} created", n.OrderId);
+            }
+
             return Task.CompletedTask;
         }
     }
