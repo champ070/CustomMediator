@@ -13,6 +13,7 @@ It is a learning-oriented, lightweight library written to understand what mediat
 - **Pipeline behaviors** (`IPipelineBehavior<,>`), registered as open generics, first registered = outermost
 - Built-in `ValidationBehavior` (with `IValidator<T>`) and `LoggingBehavior`
 - **Assembly scanning** registration: one call instead of wiring every handler by hand
+  (safe to call more than once: nothing is registered or run twice)
 - Clear `HandlerNotFoundException` instead of a null reference
 
 ## Quick start
@@ -54,7 +55,7 @@ src/CustomMediator/              the library (single namespace: CustomMediator)
   DependencyInjection/             AddCustomMediator and MediatorOptions
   Exceptions/                      HandlerNotFoundException
   Mediator.cs                      the IMediator implementation
-tests/CustomMediator.Tests/      xUnit v3 tests (33): unit tests plus end-to-end tests of Demo.Api
+tests/CustomMediator.Tests/      xUnit v3 tests (49): unit tests plus end-to-end tests of Demo.Api
 samples/Demo.Api/                minimal API: command, query, notification, validation, logging
   Orders/                          request/validator/handler per use case; event and its handlers; repository
   Infrastructure/                  exception handler that maps validation errors to HTTP 400
